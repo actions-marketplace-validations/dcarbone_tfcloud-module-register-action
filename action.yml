@@ -101,8 +101,8 @@ runs:
         
         _mod_status="$(echo -n "${_register_resp}" | jq -r '.data.attributes.status')"
         if [[ "${_mod_status}" == "null" ]]; then
-          echo "Error registering module:"
-          echo "${_register_resp}"
+          echo "Error registering module, check \"errors\" output for details"
+          echo "::set-output name=errors::${_register_resp}"
           exit 1
         fi
         

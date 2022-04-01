@@ -1,0 +1,111 @@
+name: "Register Terraform Cloud Module"
+description: "Very quickly made action to push Terraform Module versions to a Terraform Cloud Registry"
+
+branding:
+  icon: archive
+  color: purple
+
+inputs:
+  token:
+    required: true
+    description: "Terraform Cloud API Token with at least \"Manage Modules\" permissions."
+  organization:
+    required: true
+    description: "Name of Terraform Cloud organization"
+  namespace:
+    required: true
+    description: "Name of Terraform Cloud namespace"
+  module-name:
+    required: true
+    description: "Name of module"
+  provider-name:
+    required: true
+    description: "Name of primary provider used by module"
+  registry-name:
+    required: true
+    default: "private"
+    description: "Terraform Cloud registry name"
+
+outputs:
+  errors:
+    description: "Any error that occurred during registration"
+    value: ${{ steps.register.outputs.errors }}
+  module:
+    description: "Module registration JSON"
+    value: ${{ steps.register.outputs.module }}
+
+runs:
+  using: composite
+  steps:
+    - name: "Setup"
+      id: setup
+      shell: bash
+      run: |
+        _base_url='https://app.terraform.io/api/v2/organizations/${{ inputs.organization }}/registry-modules'
+        _register_url="${_base_url}"
+        _lookup_url="${_base_url}/${{ inputs.registry-name }}/${{ inputs.namespace }}/${{ inputs.module-name }}/${{ inputs.provider-name }}"
+        
+        echo "::set-output name=base_url::${_base_url}"
+        echo "::set-output name=lookup_url::${_lookup_url}"
+        echo "::set-output name=register_url::${_register_url}"
+
+    - name: "Register Module"
+      id: register
+      if: ${{ success() }}
+      shell: bash
+      run: |
+        echo "::add-mask::${{ inputs.token }}"
+        
+        echo "Determining if module \"${{ inputs.module-name }}\" is registered..."
+        
+        # query for existing module registration
+        _lookup_resp="$(curl \
+          -s \
+          -X GET \
+          -H 'Content-Type: application/vnd.api+json' \
+          -H "Authorization: Bearer ${{ inputs.token }}" \
+          "${{ steps.setup.outputs.lookup_url}}")"
+        
+        _mod_status="$(echo -n "${_lookup_resp}" | jq -r '.data.attributes.status')"
+        
+        # test to see if we can find a module status
+        # if so, move on
+        if [[ "${_mod_status}" != "null" ]]; then
+          echo "Module is already registered, moving on"
+          echo "::set-output name=module::${_lookup_resp}"
+          exit 0
+        fi
+        
+        # at this stage we expect to see a 404
+        _errs="$(echo -n "${_lookup_resp}" | jq -r '.errors')"
+        if [[ "${_errs}" == "null" ]] || [[ "$(echo -n "${_lookup_resp}" | jq -r '.errors[0].status')" != "404" ]]; then
+          echo "Expected to see 404, check output \"errors\" for details"
+          echo "::set-output name=errors::${_lookup_resp}"
+          exit 1
+        fi
+        
+        echo "Module not found in registry, attempting to register..."
+        
+        # NOTE: this is most likely where things will fail due to incorrect token permissions
+        
+        # compile body for register request
+        _body="{\"data\":{\"type\":\"registry-modules\",\"attributes\":{\"name\":\"${{ inputs.module-name }}\",\"provider\":\"${{ inputs.provider-name }}\",\"registry-name\":\"${{ inputs.registry-name }}\"}}}"
+        
+        _register_resp="$(curl \
+          -s \
+          -X POST \
+          -H 'Content-Type: application/vnd.api+json' \
+          -H 'Authorization: Bearer ${{ inputs.token }}' \
+          --data-raw "${_body}" \
+          ${{ steps.setup.outputs.register_url}})"
+        
+        _mod_status="$(echo -n "${_register_resp}" | jq -r '.data.attributes.status')"
+        if [[ "${_mod_status}" == "null" ]]; then
+          echo "Error registering module:"
+          echo "${_register_resp}"
+          exit 1
+        fi
+        
+        echo "::set-output name=module::${_register_resp}"
+        
+        echo "Module successfully registered."

@@ -17,6 +17,8 @@ GitHub action you can use to register a module within Terraform Cloud
 
 # Outputs
 
+* `registered` - `"true"` if this action actually registered the module this run.
+  * This is typically only ever `"true"` once in the lifecycle of a Module.
 * `module` - JSON response from one of:
   * https://www.terraform.io/cloud-docs/api-docs/private-registry/modules#create-a-module-with-no-vcs-connection
     * Returned when module is registered with this action

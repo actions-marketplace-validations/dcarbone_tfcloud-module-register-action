@@ -33,6 +33,9 @@ outputs:
   module:
     description: "Module registration JSON"
     value: ${{ steps.register.outputs.module }}
+  registered:
+    description: "If \"true\", this action registered the module"
+    value: ${{ steps.register.outputs.registered }}
 
 runs:
   using: composite
@@ -54,7 +57,11 @@ runs:
       if: ${{ success() }}
       shell: bash
       run: |
+        # mask token
         echo "::add-mask::${{ inputs.token }}"
+        
+        # default to "false" here 
+        echo "::set-output name=registered::false"
         
         echo "Determining if module \"${{ inputs.module-name }}\" is registered..."
         
@@ -91,6 +98,7 @@ runs:
         # compile body for register request
         _body="{\"data\":{\"type\":\"registry-modules\",\"attributes\":{\"name\":\"${{ inputs.module-name }}\",\"provider\":\"${{ inputs.provider-name }}\",\"registry-name\":\"${{ inputs.registry-name }}\"}}}"
         
+        # execute register call
         _register_resp="$(curl \
           -s \
           -X POST \
@@ -99,6 +107,7 @@ runs:
           --data-raw "${_body}" \
           ${{ steps.setup.outputs.register_url}})"
         
+        # if successful, look for well-known key in response
         _mod_status="$(echo -n "${_register_resp}" | jq -r '.data.attributes.status')"
         if [[ "${_mod_status}" == "null" ]]; then
           echo "Error registering module, check \"errors\" output for details"
@@ -106,6 +115,10 @@ runs:
           exit 1
         fi
         
+        # set register response as "module" output
         echo "::set-output name=module::${_register_resp}"
+        
+        # flag this action as having registered the module
+        echo "::set-output name=registered::true"
         
         echo "Module successfully registered."

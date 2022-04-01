@@ -1,26 +1,28 @@
 # Terraform Cloud Module Registration Action
 GitHub action you can use to register a module within Terraform Cloud
 
-# Process
+# Inputs
 
-This action will attempt to look up an existing module registration based on the provided configuration.  If one
-is not found, it will try to create it.
-
-That's it :)
-
-# Configuration
-
-## Required Inputs:
+## Required
 * `token` - Terraform Cloud API Token with at least "Manage Modules" permissions.
 * `organization` - Name of Terraform Cloud organization
 * `namespace` - Your organization's namespace
 * `module-name` - Name of module
 * `provider-name` Name of primary provider used by module
 
-## Optional Inputs 
+## Optional
 
 * `registry-name` - Name of Registry to push to
   * Defaults to `private`
+
+# Outputs
+
+* `module` - JSON response from one of:
+  * https://www.terraform.io/cloud-docs/api-docs/private-registry/modules#create-a-module-with-no-vcs-connection
+    * Returned when module is registered with this action
+  * https://www.terraform.io/cloud-docs/api-docs/private-registry/modules#get-a-module
+    * Returned with module was already registered
+* `errors` - Any error seen during execution
 
 # Example
 

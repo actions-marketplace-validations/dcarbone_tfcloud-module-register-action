@@ -1,5 +1,5 @@
 name: "Register Terraform Cloud Module"
-description: "Very quickly made action to push Terraform Module versions to a Terraform Cloud Registry"
+description: "Very quickly made action to register a Terraform Module to a Terraform Cloud Registry"
 
 branding:
   icon: archive
